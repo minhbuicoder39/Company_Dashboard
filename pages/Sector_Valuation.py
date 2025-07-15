@@ -5,16 +5,14 @@ import plotly.graph_objects as go
 import plotly.express as px
 from utils.utils import get_data_path
 
-#%%
-DATA_DIR = get_data_path("")
-
+#%% Data preparation
 # Import all L2
 def sector_ticker_list():
     """
     Return the L2 sectors and the tickers belong to that sector
     Format: Sector: [Ticker1, Ticker2]
     """
-    stock_set = pd.read_excel(DATA_DIR / "STOCK LIST.xlsx")
+    stock_set = pd.read_excel(get_data_path("STOCK LIST.xlsx"))
     # Initialize an empty dictionary to store the classification.
     sector_dict = {}
     
@@ -30,7 +28,7 @@ def sector_ticker_list():
 sector_dict = sector_ticker_list()
 
 # Valuation data
-df = pd.read_csv(DATA_DIR / "Val_processed.csv")
+df = pd.read_csv(get_data_path("Val_processed.csv"))
 df['TRADE_DATE'] = pd.to_datetime(df['TRADE_DATE'])
 
 

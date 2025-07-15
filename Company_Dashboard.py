@@ -6,15 +6,12 @@ from plotly.subplots import make_subplots
 from pathlib import Path
 from utils.utils import get_data_path
 
-#%%
-# Step 1: Get path to repo root (one level above `pages/`)
-DATA_DIR = get_data_path("")
 
 #%% Data preparation
-df = pd.read_csv(DATA_DIR / 'FA_processed.csv')
-val = pd.read_csv(DATA_DIR / 'Val_processed.csv')
-mcap = pd.read_csv(DATA_DIR / 'MktCap_processed.csv')
-bank = pd.read_csv(DATA_DIR / 'BankSupp_processed.csv')
+df = pd.read_csv(get_data_path("FA_processed.csv"))
+val = pd.read_csv(get_data_path("Val_processed.csv"))
+mcap = pd.read_csv(get_data_path("MktCap_processed.csv"))
+bank = pd.read_csv(get_data_path("BankSupp_processed.csv"))
 
 # List creation
 IS = ['Net_Revenue','Gross_Profit', 'EBIT', 'EBITDA',  'NPATMI']

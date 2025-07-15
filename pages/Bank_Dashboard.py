@@ -5,22 +5,18 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from utils.utils import get_data_path
 
-#%%
-# Step 1: Get path to repo root (one level above `pages/`)
-DATA_DIR = get_data_path("")
-
 #%% Load bank data
-bank = pd.read_csv(DATA_DIR / "df_q_v2.csv")
+bank = pd.read_csv(get_data_path("df_q_v2.csv"))
 bank['DATE'] = bank['YEARREPORT'].astype(str) + 'Q' + bank['LENGTHREPORT'].astype(str)
 
 # Load keycode mapping
-mapping = pd.read_excel(DATA_DIR / "IRIS KeyCodes - Bank.xlsx")
+mapping = pd.read_excel(get_data_path("IRIS KeyCodes - Bank.xlsx"))
 mapping = mapping[~(mapping['DWHCode'].isna())]
 mapping = mapping[['DWHCode', 'KeyCode','Name','Format']]
 keycode_to_name_dict = mapping.set_index('KeyCode')['Name'].to_dict()
 
 # Load ticker classification
-classification = pd.read_excel(DATA_DIR / "Classification.xlsx")
+classification = pd.read_excel(get_data_path("Classification.xlsx"))
 classification['GROUP'] = classification['GROUP'].astype(str)
 
 #%% Functions for single bank data table
