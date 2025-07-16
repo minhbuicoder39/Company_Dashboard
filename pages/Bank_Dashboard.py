@@ -288,6 +288,7 @@ EARNINGS_QUALITY_PLOT = plot(EARNINGS_QUALITY)
 SIZE_PLOT = plot(SIZE)
 
 # Multi-bank plot
+IS_MULTI_PLOT = plot(IS_MULTI)
 EARNINGS_QUALITY_MULTI_PLOT = plot(EARNINGS_QUALITY_MULTI)
 ASSET_QUALITY_MULTI_PLOT = plot(ASSET_QUALITY_MULTI)
 SIZE_MULTI_PLOT = plot(SIZE_MULTI)
@@ -300,6 +301,7 @@ with tab11:
     tab1, tab2, tab3, tab4 = st.tabs(["Income Statement", "Sizes", "Earnings Quality", "Asset Quality"])
     with tab1:
         st.dataframe(IS)
+        st.plotly_chart(IS_PLOT)
     with tab2:
         st.dataframe(SIZE)
         st.plotly_chart(SIZE_PLOT)
@@ -322,6 +324,7 @@ with tab21:
             st.warning("No data available for selected tickers and period.")
         else:
             st.dataframe(IS_MULTI)
+            st.plotly_chart(IS_MULTI_PLOT)
     with tab2:
         if SIZE_MULTI.empty:
             st.warning("No data available for selected tickers and period.")

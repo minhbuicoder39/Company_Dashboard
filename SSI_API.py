@@ -19,7 +19,7 @@ def fetch_ohlcv(symbol, start_date="2025-07-15", end_date=None):
 
     url = (
         f"https://iboard-api.ssi.com.vn/statistics/charts/history"
-        f"?resolution=1&symbol={symbol}&from={from_unix}&to={to_unix}"
+        f"?resolution=1D&symbol={symbol}&from={from_unix}&to={to_unix}"
     )
 
     resp = requests.get(url)
@@ -39,7 +39,7 @@ def fetch_ohlcv(symbol, start_date="2025-07-15", end_date=None):
     # Convert to Vietnam time (GMT+7)
     date_series = pd.to_datetime(d['t'], unit='s', utc=True).tz_convert('Asia/Ho_Chi_Minh')
     # If you want naive datetime (no tz info), uncomment the next line:
-    # date_series = date_series.tz_localize(None)
+    date_series = date_series.tz_localize(None)
 
     df = pd.DataFrame({
         'date': date_series,
