@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from pathlib import Path
 from utils.utils import get_data_path
-
+from datetime import datetime
 
 #%% Data preparation
 df = pd.read_csv(get_data_path("FA_processed.csv"))
@@ -348,20 +348,30 @@ fig_GR = create_gr_plots(df, selected_ticker)
 fig_MARGIN = create_margin_plots(df, selected_ticker)
 fig_BANK_SUPPLEMENT = create_bank_plots(bank, selected_ticker)
 
+# Plot OHLCV data
+from SSI_API import load_ticker_price
+ytd = datetime(datetime.today().year, 1, 1)
+
+with st.expander("Price Chart", expanded=True):
+    start_date_price = st.date_input("Start Date (Default: YTD)", value=ytd, key ="start_date_price")
+    fig_PRICE = load_ticker_price(selected_ticker, start_date=start_date_price.strftime('%Y-%m-%d'))
+    st.plotly_chart(fig_PRICE)
+
 # Tab for 3 financial graphs
-tab1, tab2, tab3, tab4 = st.tabs(["IS", "Bank", "Growth", "Margin"])
-with tab1:
-    st.plotly_chart(fig_FA)
-with tab2:
-    st.plotly_chart(fig_BANK_SUPPLEMENT)
-with tab3:
-    st.plotly_chart(fig_GR)
-with tab4:
-    st.plotly_chart(fig_MARGIN)
+with st.expander("Financial Graphs", expanded=True):
+    tab1, tab2, tab3, tab4 = st.tabs(["IS", "Supplement(Bank)", "Growth", "Margin"])
+    with tab1:
+        st.plotly_chart(fig_FA)
+    with tab2:
+        st.plotly_chart(fig_BANK_SUPPLEMENT)
+    with tab3:
+        st.plotly_chart(fig_GR)
+    with tab4:
+        st.plotly_chart(fig_MARGIN)
 
 # Valuation Plots
 fig_val = create_pe_pb_plot(val, selected_ticker)
-with st.expander("Valuation Ratios", expanded=True):
+with st.expander("Valuation Charts", expanded=False):
     st.plotly_chart(fig_val, key="pe_chart")
 
 # Financial Tables:
@@ -369,14 +379,14 @@ fs_table_result = create_fs_table_main(df, selected_ticker)
 bs_table_result = create_bs_table(df, selected_ticker)
 cf_table_result = create_cf_table(df, selected_ticker)
 
-tab1, tab2, tab3 = st.tabs(["Financial Summary", "Balance Sheet", "Cash Flow"])
-
-with tab1:
-    st.subheader("Financial Summary Table (IS, Growth, Margin)")
-    st.dataframe(fs_table_result)
-with tab2:
-    st.subheader("Balance Sheet Table")
-    st.dataframe(bs_table_result)
-with tab3:
-    st.subheader("Cash Flow Table")
-    st.dataframe(cf_table_result)
+with st.expander("Financial Tables", expanded=False):
+    tab1, tab2, tab3 = st.tabs(["Financial Summary", "Balance Sheet", "Cash Flow"])
+    with tab1:
+        st.subheader("Financial Summary Table (IS, Growth, Margin)")
+        st.dataframe(fs_table_result)
+    with tab2:
+        st.subheader("Balance Sheet Table")
+        st.dataframe(bs_table_result)
+    with tab3:
+        st.subheader("Cash Flow Table")
+        st.dataframe(cf_table_result)

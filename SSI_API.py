@@ -6,12 +6,12 @@ from datetime import datetime
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-
+#%% Helper functions
 def get_unix_timestamp(date_str):
     # Input format: 'YYYY-MM-DD'
     return int(time.mktime(datetime.strptime(date_str, "%Y-%m-%d").timetuple()))
 
-def fetch_ohlcv(symbol, start_date="2025-07-15", end_date=None):
+def fetch_ohlcv(symbol, start_date="2020-01-01", end_date=None):
     if end_date is None:
         end_date = datetime.today().strftime('%Y-%m-%d')
     from_unix = get_unix_timestamp(start_date)
@@ -36,10 +36,10 @@ def fetch_ohlcv(symbol, start_date="2025-07-15", end_date=None):
     if not d['t']:
         raise Exception("No data returned from API for the given date range.")
 
-    # Convert to Vietnam time (GMT+7)
-    date_series = pd.to_datetime(d['t'], unit='s', utc=True).tz_convert('Asia/Ho_Chi_Minh')
-    # If you want naive datetime (no tz info), uncomment the next line:
-    date_series = date_series.tz_localize(None)
+    # # Convert to Vietnam time (GMT+7)
+    date_series = pd.to_datetime(d['t'], unit='s')
+    # # If you want naive datetime (no tz info), uncomment the next line:
+    # date_series = date_series.tz_localize(None)
 
     df = pd.DataFrame({
         'date': date_series,
@@ -53,7 +53,6 @@ def fetch_ohlcv(symbol, start_date="2025-07-15", end_date=None):
     return df
 
 
-#%% OHLCV plotting
 def plot_ohlcv_candlestick(df, symbol, start_date = '2024-12-31'):
     df_temp = df[df['date'] >= start_date].copy()
     df_temp['date'] = df_temp['date'].dt.strftime('%Y-%m-%d')
@@ -62,7 +61,7 @@ def plot_ohlcv_candlestick(df, symbol, start_date = '2024-12-31'):
         shared_xaxes=True, 
         vertical_spacing=0.03,
         row_heights=[0.7, 0.3],
-        subplot_titles=[f"{symbol} OHLC", "Volume"]
+        subplot_titles=[f"{symbol} Price Chart", "Volume"]
     )
     # Candlestick
     fig.add_trace(
@@ -73,7 +72,7 @@ def plot_ohlcv_candlestick(df, symbol, start_date = '2024-12-31'):
             low=df_temp['low'],
             close=df_temp['close'],
             name='OHLC',
-            opacity=0.9
+            opacity=1.0
         ), row=1, col=1
     )
     # Color volume bars by up/down
@@ -84,18 +83,19 @@ def plot_ohlcv_candlestick(df, symbol, start_date = '2024-12-31'):
             y=df_temp['volume'],
             marker_color=colors,
             name='Volume',
-            opacity=0.6
+            opacity=0.5
         ), row=2, col=1
     )
     # Layout
     fig.update_layout(
         template='plotly_white',
-        title=f"{symbol} OHLCV Candlestick Chart",
+        title=f"{symbol} Price Chart",
         xaxis2_title="Date",
         yaxis_title="Price",
         yaxis2_title="Volume",
-        xaxis_rangeslider_visible=False,
-        height=700,
+        xaxis_rangeslider_visible=False,  
+        xaxis2_rangeslider_visible=False,
+        height=600,
         showlegend=False
     )
     fig.update_xaxes(
@@ -103,16 +103,32 @@ def plot_ohlcv_candlestick(df, symbol, start_date = '2024-12-31'):
         type='category',
     )
 
-    fig.show()
+    return fig
 
-
-#%%
+#%% Putting it together
 ytd = datetime(datetime.today().year, 1, 1)
 two_years_ago = datetime.today() - pd.DateOffset(years=2)
 three_years_ago = datetime.today() - pd.DateOffset(years=3)
 five_years_ago = datetime.today() - pd.DateOffset(years=5)
 
-# Example usage:
-if __name__ == "__main__":
-    df = fetch_ohlcv('VNINDEX')
-    plot_ohlcv_candlestick(df, 'VNINDEX', start_date=ytd)
+def load_ticker_price(ticker, start_date, end_date=None):
+    """
+    Load OHLCV data for a specific ticker.
+    """
+    df = fetch_ohlcv(ticker, start_date, end_date)
+    fig = plot_ohlcv_candlestick(df, ticker, start_date)
+    return fig
+
+
+#%% Streamlit
+# import streamlit as st 
+
+# st.header("Stock Price Dashboard")
+# ticker = st.text_input("Enter ticker symbol (e.g., 'VNINDEX')", value='VNINDEX')
+# start_date = st.date_input("Start Date (Default: YTD)", value=ytd)
+# if st.button("Load Data"):
+#     try:
+#         fig = load_ticker_price(ticker, start_date=start_date.strftime('%Y-%m-%d'))
+#         st.plotly_chart(fig)
+#     except Exception as e:
+#         st.error(f"Error loading data: {e}")
