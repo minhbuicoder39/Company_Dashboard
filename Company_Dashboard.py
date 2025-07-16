@@ -309,7 +309,6 @@ st.set_page_config(layout = 'wide', page_title="Company Dashboard")
 st.title("Company Dashboard")
 latest_date = pd.to_datetime(val['TRADE_DATE'].max())
 formatted_date = latest_date.strftime('%b-%d-%Y') if not pd.isnull(latest_date) else "N/A"
-st.write(f"Data last updated: {formatted_date}")
 
 # Side bar for ticker selection and start year selection
 st.sidebar.header('Ticker Selection')
@@ -317,12 +316,11 @@ selected_ticker = st.sidebar.selectbox("Select Ticker", df['TICKER'].unique())
 years = sorted(df['YEAR'].unique()) # Add a year selector
 start_year = st.sidebar.selectbox("Select Start Year", years, index=2) #defaulted to 2020
 
-# Display selected ticker as header
-st.header(f"TICKER: {selected_ticker}")
-
 # Boxes to display most recent P/E, P/B, EV/EBITDA, and market cap level
 key_data = extract_key_data(val,mcap, selected_ticker)
-st.subheader("Key Statistics")
+st.subheader("Ticker: " + selected_ticker)
+st.write(f"Data last updated: {formatted_date} (except for price chart - daily updated)")
+
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.metric("Market Cap", f"{key_data['M_CAP']:,.0f}" if key_data['M_CAP'] is not None else "N/A", border = True)

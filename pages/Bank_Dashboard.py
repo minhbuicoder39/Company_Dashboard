@@ -119,7 +119,7 @@ def single_asset_quality(df, startperiod = 2022):
 def plot(df):
     df_temp = df.copy()
     row = df_temp.shape[0] // 2 + 1
-    fig = make_subplots(rows=row, cols=2, subplot_titles=df_temp.index.tolist(), vertical_spacing=0.1)
+    fig = make_subplots(rows=row, cols=2, subplot_titles=df_temp.index.tolist(), vertical_spacing=0.05)
 
     for i, metric in enumerate(df_temp.index):
         row = i // 2 + 1
@@ -130,6 +130,7 @@ def plot(df):
         height=400 * row, width=1200, 
         title_text="Asset Quality Metrics", 
         showlegend=False,
+        # template='simple_white',
     )
     return fig
 
@@ -226,6 +227,10 @@ def visualize_multi_ticker_data(df, tickers, keycode, startperiod=2021):
     for ticker in tickers:
         df_ticker = df[(df['TICKER'] == ticker) & (df['YEARREPORT'] >= startperiod)].copy()
         df_ticker = df_ticker.sort_values(['YEARREPORT', 'LENGTHREPORT'])
+        if keycode in ca_pct:
+            df_ticker[keycode] = df_ticker[keycode] * 100  # Convert percentage to decimal for plotting
+        else:
+            df_ticker[keycode] = df_ticker[keycode] # Convert billions for better readability
         if keycode in df_ticker.columns and not df_ticker.empty:
             fig.add_trace(go.Scatter(
                 x=df_ticker['DATE'],
@@ -235,6 +240,9 @@ def visualize_multi_ticker_data(df, tickers, keycode, startperiod=2021):
             ))
     if not fig.data:
         return go.Figure()
+    
+    unit = "%" if keycode in ca_pct else None
+
     fig.update_layout(
         title=f"Multi Ticker Data - {keycode_to_name_dict.get(keycode, keycode)}",
         xaxis_title="Period",
@@ -244,6 +252,8 @@ def visualize_multi_ticker_data(df, tickers, keycode, startperiod=2021):
         template="plotly_white",
         barmode='group',
         xaxis_showgrid=False,
+        yaxis_ticksuffix=unit,
+        yaxis_tickformat=".1f" if keycode in ca_pct else "~s",
     )
     return fig
 
@@ -313,11 +323,7 @@ with tab11:
         st.plotly_chart(ASSET_QUALITY_PLOT)
 
 with tab21:
-
     st.subheader(f"Multi-Bank for Group {selected_group}")
-
-
-
     tab1, tab2, tab3, tab4 = st.tabs(["Income Statement", "Sizes", "Earnings Quality", "Asset Quality"])
     with tab1:
         if IS_MULTI.empty:
@@ -351,9 +357,9 @@ list = list(name_to_keycode_dict.keys())
 with tab31:
     st.subheader("Charting for multi tickers")
     st.write('You can also select SOCB, Industry, 1, 2, 3 to view')
-    chart_tickers = st.multiselect("Select Ticker", bank['TICKER'].unique(), key='chart_ticker')
+    chart_tickers = st.multiselect("Select Ticker", bank_formatted['TICKER'].unique(), key='chart_ticker')
     selected_meaning = st.selectbox("Select KeyCode", options = list, index=1)
-    starting_period = st.selectbox('Select Starting Period', options=(bank['YEARREPORT'].unique()), index=4)
+    starting_period = st.selectbox('Select Starting Period', options=(bank_formatted['YEARREPORT'].unique()), index=4)
     CHART = visualize_multi_ticker_data(bank,
                                          tickers=chart_tickers,
                                          keycode=name_to_keycode_dict[selected_meaning],
