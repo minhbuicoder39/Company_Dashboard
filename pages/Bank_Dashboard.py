@@ -6,14 +6,22 @@ from plotly.subplots import make_subplots
 from utils.utils import get_data_path
 
 #%% Load bank data
-bank = pd.read_csv(get_data_path("df_q_v2.csv"))
+bank = pd.read_csv(get_data_path("df_q_full.csv"))
+bank_formatted = pd.read_csv(get_data_path("df_q_full_formatted.csv"))
 bank['DATE'] = bank['YEARREPORT'].astype(str) + 'Q' + bank['LENGTHREPORT'].astype(str)
+bank_formatted['DATE'] = bank_formatted['YEARREPORT'].astype(str) + 'Q' + bank_formatted['LENGTHREPORT'].astype(str)
 
 # Load keycode mapping
 mapping = pd.read_excel(get_data_path("IRIS KeyCodes - Bank.xlsx"))
 mapping = mapping[~(mapping['DWHCode'].isna())]
 mapping = mapping[['DWHCode', 'KeyCode','Name','Format']]
+
+ca_format = mapping[mapping['KeyCode'].str.startswith('CA.')][['KeyCode','Format']]
+ca_pct = ca_format[ca_format['Format'] == 'pct']['KeyCode'].tolist()
+
 keycode_to_name_dict = mapping.set_index('KeyCode')['Name'].to_dict()
+keycode_to_name_dict.pop("Dividend") # Remove Dividend as it is not used in the dashboard
+name_to_keycode_dict = {v: k for k, v in keycode_to_name_dict.items()}
 
 # Load ticker classification
 classification = pd.read_excel(get_data_path("Classification.xlsx"))
@@ -209,6 +217,37 @@ def asset_quality_multi(df, tickers, period = '2025Q1'):
 
     return df_pivoted
 
+#%% Free plotting function
+def visualize_multi_ticker_data(df, tickers, keycode, startperiod=2021):
+    """
+    Visualize data for multiple tickers over time on the same chart.
+    """
+    fig = go.Figure()
+    for ticker in tickers:
+        df_ticker = df[(df['TICKER'] == ticker) & (df['YEARREPORT'] >= startperiod)].copy()
+        df_ticker = df_ticker.sort_values(['YEARREPORT', 'LENGTHREPORT'])
+        if keycode in df_ticker.columns and not df_ticker.empty:
+            fig.add_trace(go.Scatter(
+                x=df_ticker['DATE'],
+                y=df_ticker[keycode],
+                name=ticker,
+                mode='lines+markers',
+            ))
+    if not fig.data:
+        return go.Figure()
+    fig.update_layout(
+        title=f"Multi Ticker Data - {keycode_to_name_dict.get(keycode, keycode)}",
+        xaxis_title="Period",
+        yaxis_title=keycode_to_name_dict.get(keycode, keycode),
+        width=800,
+        height=400,
+        template="plotly_white",
+        barmode='group',
+        xaxis_showgrid=False,
+    )
+    return fig
+
+
 #%% Streamlit App Design
 st.set_page_config(layout = 'wide', page_title="Banking Dashboard")
 
@@ -219,6 +258,7 @@ st.write(f"Data last updated: {formatted}")
 
 # Selection for single bank analysis
 st.sidebar.header('Ticker Selection')
+st.sidebar.write("Type in Industry, SOCB, 1, 2, 3 to view as one FS")
 selected_ticker = st.sidebar.selectbox("Select Ticker", bank['TICKER'].unique())
 list_periods = pd.Series(bank['YEARREPORT'].unique())
 selected_start = st.sidebar.selectbox("Select Start Period", list_periods, index=4)
@@ -230,16 +270,16 @@ selected_tickers = classification[classification['GROUP'] == selected_group]['TI
 selected_period = st.sidebar.selectbox("Select Period", sorted(bank['DATE'].unique(), reverse=True), index=0)
 
 # Single-bank tables
-IS = single_income_statement(single_ticker(bank, selected_ticker), startperiod=selected_start)
-SIZE = single_size(single_ticker(bank, selected_ticker), startperiod=selected_start)
-EARNINGS_QUALITY = single_earnings_quality(single_ticker(bank, selected_ticker), startperiod=selected_start)
-ASSET_QUALITY = single_asset_quality(single_ticker(bank, selected_ticker), startperiod=selected_start)
+IS = single_income_statement(single_ticker(bank_formatted, selected_ticker), startperiod=selected_start)
+SIZE = single_size(single_ticker(bank_formatted, selected_ticker), startperiod=selected_start)
+EARNINGS_QUALITY = single_earnings_quality(single_ticker(bank_formatted, selected_ticker), startperiod=selected_start)
+ASSET_QUALITY = single_asset_quality(single_ticker(bank_formatted, selected_ticker), startperiod=selected_start)
 
 # Multi-bank tables
-IS_MULTI = income_statement_multi(bank, tickers=selected_tickers, period=selected_period)
-SIZE_MULTI = size_multi(bank, tickers=selected_tickers, period=selected_period)
-EARNINGS_QUALITY_MULTI = earnings_quality_multi(bank, tickers=selected_tickers, period=selected_period)
-ASSET_QUALITY_MULTI = asset_quality_multi(bank, tickers=selected_tickers, period=selected_period)   
+IS_MULTI = income_statement_multi(bank_formatted, tickers=selected_tickers, period=selected_period)
+SIZE_MULTI = size_multi(bank_formatted, tickers=selected_tickers, period=selected_period)
+EARNINGS_QUALITY_MULTI = earnings_quality_multi(bank_formatted, tickers=selected_tickers, period=selected_period)
+ASSET_QUALITY_MULTI = asset_quality_multi(bank_formatted, tickers=selected_tickers, period=selected_period)
 
 # Plots
 IS_PLOT = plot(IS)
@@ -253,7 +293,7 @@ ASSET_QUALITY_MULTI_PLOT = plot(ASSET_QUALITY_MULTI)
 SIZE_MULTI_PLOT = plot(SIZE_MULTI)
 
 # Display tabs
-tab11, tab21 = st.tabs(["Single Bank", "Multi-Bank"])
+tab11, tab21, tab31 = st.tabs(["Single Bank", "Multi-Bank",'Charting'])
 
 with tab11:
     st.subheader(f"Single Bank: {selected_ticker}")
@@ -271,7 +311,11 @@ with tab11:
         st.plotly_chart(ASSET_QUALITY_PLOT)
 
 with tab21:
+
     st.subheader(f"Multi-Bank for Group {selected_group}")
+
+
+
     tab1, tab2, tab3, tab4 = st.tabs(["Income Statement", "Sizes", "Earnings Quality", "Asset Quality"])
     with tab1:
         if IS_MULTI.empty:
@@ -296,3 +340,19 @@ with tab21:
         else:
             st.dataframe(ASSET_QUALITY_MULTI)
             st.plotly_chart(ASSET_QUALITY_MULTI_PLOT)
+
+
+list = list(name_to_keycode_dict.keys())
+
+
+with tab31:
+    st.subheader("Charting for multi tickers")
+    st.write('You can also select SOCB, Industry, 1, 2, 3 to view')
+    chart_tickers = st.multiselect("Select Ticker", bank['TICKER'].unique(), key='chart_ticker')
+    selected_meaning = st.selectbox("Select KeyCode", options = list, index=1)
+    starting_period = st.selectbox('Select Starting Period', options=(bank['YEARREPORT'].unique()), index=4)
+    CHART = visualize_multi_ticker_data(bank,
+                                         tickers=chart_tickers,
+                                         keycode=name_to_keycode_dict[selected_meaning],
+                                         startperiod=starting_period)
+    st.plotly_chart(CHART)

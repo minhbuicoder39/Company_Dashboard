@@ -70,43 +70,6 @@ def create_fs_table_main(df, ticker: str) -> pd.DataFrame:
     fs_table = fs_table.reindex(index=IS_ORDER)  # Reorder columns based on IS_ORDER
     return fs_table
 
-def create_fs_table(df, ticker: str) -> pd.DataFrame:
-    global IS, BS, CF
-    
-    df_temp = df.copy()
-    
-    df_ticker = df_temp[df_temp['TICKER'] == ticker]  # Filter by ticker
-    # df_ticker = df_temp[df_temp['TICKER'] == 'MWG']  # For debugging
-    
-    def process_section(section: list, section_name: str) -> pd.DataFrame: #function for displaying data
-        df_section = df_ticker[df_ticker['KEYCODE'].isin(section)]
-        section_table = df_section.pivot(index='KEYCODE', columns='DATE', values='VALUE')
-        section_table = section_table.reindex(section)
-        section_table = section_table.map(lambda x: f"{x/1e9:,.1f}") if section is not MARGIN else section_table
-        section_table = section_table.map(lambda x: f"{x*100:.1f}%") if section is MARGIN else section_table
-        # section_table = section_table.applymap(lambda x: f"{x:,.1f}")
-        section_table.insert(0, 'SECTION', section_name)
-        return section_table
-    
-    IS_growth = {i:f"{i}_Gr" for i in IS}
-
-    def process_growth(section: list, section_name: str) -> pd.DataFrame: #function for displaying growth data
-        df_growth = df_ticker[df_ticker['KEYCODE'].isin(section)]
-        df_growth['YoY'] = df_growth.groupby(['TICKER','KEYCODE'])['VALUE'].pct_change(periods = 4)
-        growth_table = df_growth.pivot(index = 'KEYCODE', columns = 'DATE', values = 'YoY')
-        growth_table = growth_table.reindex(section)
-        growth_table = growth_table.rename(index = IS_growth)
-        growth_table = growth_table.map(lambda x: f"{x*100:.1f}%") #format to %
-        growth_table.insert(0, 'SECTION', section_name)
-        return growth_table
-
-    IS_table = process_section(IS, 'IS')
-    GR_table = process_growth(IS,'IS_GROWTH')
-    MARGIN_table = process_section(MARGIN, 'MARGIN')
-    fs_table = pd.concat([IS_table, GR_table, MARGIN_table])
-    fs_table = fs_table.drop(columns = 'SECTION')
-    return fs_table
-
 def create_bs_table(df, ticker: str) -> pd.DataFrame:
     global BS
     df_temp = df.copy()
