@@ -223,7 +223,7 @@ def visualize_multi_ticker_data(df, tickers, keycodes, startperiod=2021):
     """
     Visualize data for multiple tickers over time on the same chart.
     keycodes: list of keycodes to plot, each in its own subplot.
-    2 subplots per row.
+    If one keycode, use 1 column; else use 2 columns per row.
     """
     if not keycodes or not tickers:
         return go.Figure()  # Return empty figure if nothing selected
@@ -231,7 +231,7 @@ def visualize_multi_ticker_data(df, tickers, keycodes, startperiod=2021):
     if isinstance(keycodes, str):
         keycodes = [keycodes]
     n = len(keycodes)
-    ncols = 2
+    ncols = 1 if n == 1 else 2
     nrows = (n + ncols - 1) // ncols
 
     # Assign a color to each ticker
