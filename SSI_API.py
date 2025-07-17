@@ -5,12 +5,15 @@ import time
 from datetime import datetime
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import streamlit as st 
+
 
 #%% Helper functions
 def get_unix_timestamp(date_str):
     # Input format: 'YYYY-MM-DD'
     return int(time.mktime(datetime.strptime(date_str, "%Y-%m-%d").timetuple()))
 
+@st.cache_data
 def fetch_ohlcv(symbol, start_date="2020-01-01", end_date=None):
     if end_date is None:
         end_date = datetime.today().strftime('%Y-%m-%d')
@@ -111,6 +114,7 @@ two_years_ago = datetime.today() - pd.DateOffset(years=2)
 three_years_ago = datetime.today() - pd.DateOffset(years=3)
 five_years_ago = datetime.today() - pd.DateOffset(years=5)
 
+@st.cache_data
 def load_ticker_price(ticker, start_date, end_date=None):
     """
     Load OHLCV data for a specific ticker.
@@ -121,7 +125,6 @@ def load_ticker_price(ticker, start_date, end_date=None):
 
 
 #%% Streamlit
-# import streamlit as st 
 
 # st.header("Stock Price Dashboard")
 # ticker = st.text_input("Enter ticker symbol (e.g., 'VNINDEX')", value='VNINDEX')

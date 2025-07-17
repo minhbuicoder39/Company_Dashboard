@@ -219,44 +219,73 @@ def asset_quality_multi(df, tickers, period = '2025Q1'):
     return df_pivoted
 
 #%% Free plotting function
-def visualize_multi_ticker_data(df, tickers, keycode, startperiod=2021):
+def visualize_multi_ticker_data(df, tickers, keycodes, startperiod=2021):
     """
     Visualize data for multiple tickers over time on the same chart.
+    keycodes: list of keycodes to plot, each in its own subplot.
+    2 subplots per row.
     """
-    fig = go.Figure()
-    for ticker in tickers:
-        df_ticker = df[(df['TICKER'] == ticker) & (df['YEARREPORT'] >= startperiod)].copy()
-        df_ticker = df_ticker.sort_values(['YEARREPORT', 'LENGTHREPORT'])
-        if keycode in ca_pct:
-            df_ticker[keycode] = df_ticker[keycode] * 100  # Convert percentage to decimal for plotting
-        else:
-            df_ticker[keycode] = df_ticker[keycode] # Convert billions for better readability
-        if keycode in df_ticker.columns and not df_ticker.empty:
-            fig.add_trace(go.Scatter(
-                x=df_ticker['DATE'],
-                y=df_ticker[keycode],
-                name=ticker,
-                mode='lines+markers',
-            ))
-    if not fig.data:
-        return go.Figure()
-    
-    unit = "%" if keycode in ca_pct else None
+    if not keycodes or not tickers:
+        return go.Figure()  # Return empty figure if nothing selected
 
+    if isinstance(keycodes, str):
+        keycodes = [keycodes]
+    n = len(keycodes)
+    ncols = 2
+    nrows = (n + ncols - 1) // ncols
+
+    # Assign a color to each ticker
+    import plotly.colors
+    palette = plotly.colors.qualitative.Plotly
+    ticker_colors = {ticker: palette[i % len(palette)] for i, ticker in enumerate(tickers)}
+
+    fig = make_subplots(
+        rows=nrows, cols=ncols, shared_xaxes=True,
+        subplot_titles=[keycode_to_name_dict.get(k, k) for k in keycodes],
+        vertical_spacing=0.07
+    )
+    for idx, keycode in enumerate(keycodes):
+        row = idx // ncols + 1
+        col = idx % ncols + 1
+        for t_idx, ticker in enumerate(tickers):
+            df_ticker = df[(df['TICKER'] == ticker) & (df['YEARREPORT'] >= startperiod)].copy()
+            df_ticker = df_ticker.sort_values(['YEARREPORT', 'LENGTHREPORT'])
+            if keycode in ca_pct:
+                df_ticker[keycode] = df_ticker[keycode] * 100
+            if keycode in df_ticker.columns and not df_ticker.empty:
+                # Only show legend for first subplot
+                showlegend = (idx == 0)
+                fig.add_trace(
+                    go.Scatter(
+                        x=df_ticker['DATE'],
+                        y=pd.to_numeric(df_ticker[keycode], errors='coerce'),
+                        name=ticker,
+                        mode='lines+markers',
+                        marker=dict(color=ticker_colors[ticker]),
+                        line=dict(color=ticker_colors[ticker]),
+                        showlegend=showlegend,
+                    ),
+                    row=row, col=col
+                )
     fig.update_layout(
-        title=f"Multi Ticker Data - {keycode_to_name_dict.get(keycode, keycode)}",
-        xaxis_title="Period",
-        yaxis_title=keycode_to_name_dict.get(keycode, keycode),
-        width=800,
-        height=400,
+        title="Multi Ticker Data",
+        width=1200,
+        height=500 * nrows,
         template="plotly_white",
         barmode='group',
         xaxis_showgrid=False,
-        yaxis_ticksuffix=unit,
-        yaxis_tickformat=".1f" if keycode in ca_pct else "~s",
+        showlegend=True
     )
+    # Set y-axis titles for each subplot
+    for idx, keycode in enumerate(keycodes):
+        row = idx // ncols + 1
+        col = idx % ncols + 1
+        fig.update_yaxes(title_text=keycode_to_name_dict.get(keycode, keycode), row=row, col=col)
+        if keycode in ca_pct:
+            fig.update_yaxes(ticksuffix="%", tickformat=".2f", row=row, col=col)
+        else:
+            fig.update_yaxes(tickformat="~s", row=row, col=col)
     return fig
-
 
 #%% Streamlit App Design
 st.set_page_config(layout = 'wide', page_title="Banking Dashboard")
@@ -353,15 +382,17 @@ with tab21:
 
 list = list(name_to_keycode_dict.keys())
 
-
 with tab31:
     st.subheader("Charting for multi tickers")
     st.write('You can also select SOCB, Industry, 1, 2, 3 to view')
     chart_tickers = st.multiselect("Select Ticker", bank_formatted['TICKER'].unique(), key='chart_ticker')
-    selected_meaning = st.selectbox("Select KeyCode", options = list, index=1)
+    selected_meanings = st.multiselect("Select KeyCode", options=list)
     starting_period = st.selectbox('Select Starting Period', options=(bank_formatted['YEARREPORT'].unique()), index=4)
-    CHART = visualize_multi_ticker_data(bank,
-                                         tickers=chart_tickers,
-                                         keycode=name_to_keycode_dict[selected_meaning],
-                                         startperiod=starting_period)
+    selected_keycodes = [name_to_keycode_dict[m] for m in selected_meanings]
+    CHART = visualize_multi_ticker_data(
+        bank,
+        tickers=chart_tickers,
+        keycodes=selected_keycodes,
+        startperiod=starting_period
+    )
     st.plotly_chart(CHART)
