@@ -8,70 +8,65 @@ from utils.utils import get_data_path
 from datetime import datetime
 
 #%% Data preparation
-df = pd.read_csv(get_data_path("FA_processed.csv"))
-val = pd.read_csv(get_data_path("Val_processed.csv"))
-mcap = pd.read_csv(get_data_path("MktCap_processed.csv"))
-bank = pd.read_csv(get_data_path("BankSupp_processed.csv"))
+def load_data():
+    df = pd.read_csv(get_data_path("FA_processed.csv"))
+    val = pd.read_csv(get_data_path("Val_processed.csv"))
+    mcap = pd.read_csv(get_data_path("MktCap_processed.csv"))
+    bank = pd.read_csv(get_data_path("BankSupp_processed.csv"))
+    return df, val, mcap, bank
 
-# List creation
+df, val, mcap, bank = load_data()
+
 IS = ['Net_Revenue','Gross_Profit', 'EBIT', 'EBITDA',  'NPATMI']
 MARGIN = ['Gross_Margin', 'EBIT_Margin', 'EBITDA_Margin','NPAT_Margin']
-BS = ['Total_Asset', 'Cash', 'Cash_Equivalent', 'Inventory', 'Account_Receivable','Tangible_Fixed_Asset', 
-      'Total_Liabilities', 'ST_Debt', 'LT_Debt',
-      'TOTAL_Equity','Invested_Capital']
+BS = [
+    'Total_Asset', 'Cash', 'Cash_Equivalent', 'Inventory', 'Account_Receivable',
+    'Tangible_Fixed_Asset', 'Total_Liabilities', 'ST_Debt', 'LT_Debt',
+    'TOTAL_Equity','Invested_Capital'
+]
 CF = ['Operating_CF', 'Dep_Expense', 'Inv_CF', 'Capex', 'Fin_CF', 'FCF']
 
 IS_ORDER = [
-    "Net_Revenue",
-    "Net_Revenue_Gr",
-    "Gross_Profit",
-    "Gross_Profit_Gr",
-    "Gross_Margin",
-    "EBIT",
-    "EBIT_Gr",
-    "EBIT_Margin",
-    "EBITDA",
-    "EBITDA_Gr",
-    "EBITDA_Margin",
-    "NPATMI",
-    "NPATMI_Gr",
-    "NPAT_Margin"
+    "Net_Revenue", "Net_Revenue_Gr", "Gross_Profit", "Gross_Profit_Gr", "Gross_Margin",
+    "EBIT", "EBIT_Gr", "EBIT_Margin", "EBITDA", "EBITDA_Gr", "EBITDA_Margin",
+    "NPATMI", "NPATMI_Gr", "NPAT_Margin"
 ]
 
 
 #%% Financial data table
+def process_section(df_ticker, section, section_name, margin_section=False):
+    df_section = df_ticker[df_ticker['KEYCODE'].isin(section)]
+    section_table = df_section.pivot(index='KEYCODE', columns='DATE', values='VALUE')
+    section_table = section_table.reindex(section)
+    if margin_section:
+        section_table = section_table.map(lambda x: f"{x*100:.1f}%")
+    else:
+        section_table = section_table.map(lambda x: f"{x/1e9:,.1f}")
+    section_table.insert(0, 'SECTION', section_name)
+    return section_table
+
+def process_growth(df_ticker, section, section_name, IS_growth):
+    df_growth = df_ticker[df_ticker['KEYCODE'].isin(section)]
+    growth_table = df_growth.pivot(index='KEYCODE', columns='DATE', values='YoY')
+    growth_table = growth_table.reindex(section)
+    growth_table = growth_table.rename(index=IS_growth)
+    growth_table = growth_table.map(lambda x: f"{x*100:.1f}%")
+    growth_table.insert(0, 'SECTION', section_name)
+    return growth_table
+
 def create_fs_table_main(df, ticker: str) -> pd.DataFrame:
-    global IS, MARGIN
     df_temp = df.copy()
     df_ticker = df_temp[df_temp['TICKER'] == ticker]
-    def process_section(section: list, section_name: str) -> pd.DataFrame:
-        df_section = df_ticker[df_ticker['KEYCODE'].isin(section)]
-        section_table = df_section.pivot(index='KEYCODE', columns='DATE', values='VALUE')
-        section_table = section_table.reindex(section)
-        section_table = section_table.map(lambda x: f"{x/1e9:,.1f}") if section is not MARGIN else section_table
-        section_table = section_table.map(lambda x: f"{x*100:.1f}%") if section is MARGIN else section_table
-        section_table.insert(0, 'SECTION', section_name)
-        return section_table
-    IS_growth = {i:f"{i}_Gr" for i in IS}
-    def process_growth(section: list, section_name: str) -> pd.DataFrame:
-        df_growth = df_ticker[df_ticker['KEYCODE'].isin(section)]
-        # df_growth['YoY'] = df_growth.groupby(['TICKER','KEYCODE'])['VALUE'].pct_change(periods = 4)
-        growth_table = df_growth.pivot(index = 'KEYCODE', columns = 'DATE', values = 'YoY')
-        growth_table = growth_table.reindex(section)
-        growth_table = growth_table.rename(index = IS_growth)
-        growth_table = growth_table.map(lambda x: f"{x*100:.1f}%")
-        growth_table.insert(0, 'SECTION', section_name)
-        return growth_table
-    IS_table = process_section(IS, 'IS')
-    GR_table = process_growth(IS,'IS_GROWTH')
-    MARGIN_table = process_section(MARGIN, 'MARGIN')
+    IS_growth = {i: f"{i}_Gr" for i in IS}
+    IS_table = process_section(df_ticker, IS, 'IS')
+    GR_table = process_growth(df_ticker, IS, 'IS_GROWTH', IS_growth)
+    MARGIN_table = process_section(df_ticker, MARGIN, 'MARGIN', margin_section=True)
     fs_table = pd.concat([IS_table, GR_table, MARGIN_table])
-    fs_table = fs_table.drop(columns = 'SECTION')
-    fs_table = fs_table.reindex(index=IS_ORDER)  # Reorder columns based on IS_ORDER
+    fs_table = fs_table.drop(columns='SECTION')
+    fs_table = fs_table.reindex(index=IS_ORDER)
     return fs_table
 
 def create_bs_table(df, ticker: str) -> pd.DataFrame:
-    global BS
     df_temp = df.copy()
     df_ticker = df_temp[df_temp['TICKER'] == ticker]
     df_section = df_ticker[df_ticker['KEYCODE'].isin(BS)]
@@ -81,7 +76,6 @@ def create_bs_table(df, ticker: str) -> pd.DataFrame:
     return section_table
 
 def create_cf_table(df, ticker: str) -> pd.DataFrame:
-    global CF
     df_temp = df.copy()
     df_ticker = df_temp[df_temp['TICKER'] == ticker]
     df_section = df_ticker[df_ticker['KEYCODE'].isin(CF)]
@@ -91,20 +85,7 @@ def create_cf_table(df, ticker: str) -> pd.DataFrame:
     return section_table
 
 #%% Plotting key FA data
-def create_FA_plots(df, ticker: str):
-    df_temp = df.copy()
-    df_ticker = df_temp[(df_temp.TICKER == ticker) & (df_temp.KEYCODE.isin(IS))]
-    df_ticker = df_ticker.pivot(index='DATE', columns='KEYCODE', values='VALUE')
-    df_ticker = df_ticker / 1e9
-
-    plot_cols = [col for col in ['Net_Revenue', 'Gross_Profit', 'EBIT', 'NPATMI'] if col in df_ticker.columns]
-    if not plot_cols:
-        return go.Figure()
-    ma = df_ticker[plot_cols].rolling(window=4, min_periods=1).mean()
-    subplot_titles = [col.replace('_', ' ') for col in plot_cols]
-    n = len(plot_cols)
-    rows = (n + 1) // 2
-    colors = ['royalblue', 'darkorange', 'green', 'gray']
+def create_subplot_figure(df_ticker, plot_cols, ma, subplot_titles, yaxis_suffix, title, rows, colors):
     fig = make_subplots(rows=rows, cols=2, subplot_titles=subplot_titles)
     for idx, col in enumerate(plot_cols):
         row = idx // 2 + 1
@@ -119,122 +100,68 @@ def create_FA_plots(df, ticker: str):
             row=row, col=col_pos
         )
     fig.update_layout(
-        title_text="Income Statement Overview - " + ticker,
+        title_text=title,
         showlegend=False,
         height=400 * rows,
         width=1200,
         template="plotly_white"
     )
-    fig.update_yaxes(ticksuffix="bn")
+    fig.update_yaxes(ticksuffix=yaxis_suffix)
     return fig
 
-def create_gr_plots(df, ticker: str):
+def create_FA_plots(df, ticker: str):
     df_temp = df.copy()
     df_ticker = df_temp[(df_temp.TICKER == ticker) & (df_temp.KEYCODE.isin(IS))]
-    df_ticker = df_ticker.pivot(index='DATE', columns='KEYCODE', values='YoY')
-    df_ticker = df_ticker * 100
+    df_ticker = df_ticker.pivot(index='DATE', columns='KEYCODE', values='VALUE') / 1e9
     plot_cols = [col for col in ['Net_Revenue', 'Gross_Profit', 'EBIT', 'NPATMI'] if col in df_ticker.columns]
     if not plot_cols:
         return go.Figure()
     ma = df_ticker[plot_cols].rolling(window=4, min_periods=1).mean()
     subplot_titles = [col.replace('_', ' ') for col in plot_cols]
-    n = len(plot_cols)
-    rows = (n + 1) // 2
+    rows = (len(plot_cols) + 1) // 2
     colors = ['royalblue', 'darkorange', 'green', 'gray']
-    fig = make_subplots(rows=rows, cols=2, subplot_titles=subplot_titles)
-    for idx, col in enumerate(plot_cols):
-        row = idx // 2 + 1
-        col_pos = idx % 2 + 1
-        color = colors[idx % len(colors)]
-        fig.add_trace(
-            go.Bar(x=df_ticker.index, y=df_ticker[col], name=f'{col} Growth', marker_color=color),
-            row=row, col=col_pos
-        )
-        fig.add_trace(
-            go.Scatter(x=df_ticker.index, y=ma[col], mode='lines', name=f'{col} MA(4)', line=dict(color='red')),
-            row=row, col=col_pos
-        )
-    fig.update_layout(
-        title_text="Income Statement Overview - " + ticker,
-        showlegend=False,
-        height=400 * rows,
-        width=1200,
-        template="plotly_white"
-    )
-    fig.update_yaxes(ticksuffix="%")
-    return fig
+    return create_subplot_figure(df_ticker, plot_cols, ma, subplot_titles, "bn", "Income Statement Overview - " + ticker, rows, colors)
+
+def create_gr_plots(df, ticker: str):
+    df_temp = df.copy()
+    df_ticker = df_temp[(df_temp.TICKER == ticker) & (df_temp.KEYCODE.isin(IS))]
+    df_ticker = df_ticker.pivot(index='DATE', columns='KEYCODE', values='YoY') * 100
+    plot_cols = [col for col in ['Net_Revenue', 'Gross_Profit', 'EBIT', 'NPATMI'] if col in df_ticker.columns]
+    if not plot_cols:
+        return go.Figure()
+    ma = df_ticker[plot_cols].rolling(window=4, min_periods=1).mean()
+    subplot_titles = [col.replace('_', ' ') for col in plot_cols]
+    rows = (len(plot_cols) + 1) // 2
+    colors = ['royalblue', 'darkorange', 'green', 'gray']
+    return create_subplot_figure(df_ticker, plot_cols, ma, subplot_titles, "%", "Income Statement Overview - " + ticker, rows, colors)
 
 def create_margin_plots(df, ticker: str):
     df_temp = df.copy()
     df_ticker = df_temp[(df_temp.TICKER == ticker) & (df_temp.KEYCODE.isin(MARGIN))]
-    df_ticker = df_ticker.pivot(index='DATE', columns='KEYCODE', values='VALUE')
-    df_ticker = df_ticker * 100
+    df_ticker = df_ticker.pivot(index='DATE', columns='KEYCODE', values='VALUE') * 100
     plot_cols = [col for col in ['Gross_Margin', 'EBIT_Margin', 'EBITDA_Margin', 'NPAT_Margin'] if col in df_ticker.columns]
     if not plot_cols:
         return go.Figure()
     ma = df_ticker[plot_cols].rolling(window=4, min_periods=1).mean()
     subplot_titles = [col.replace('_', ' ') for col in plot_cols]
-    n = len(plot_cols)
-    rows = (n + 1) // 2
+    rows = (len(plot_cols) + 1) // 2
     colors = ['royalblue', 'darkorange', 'green', 'gray']
-    fig = make_subplots(rows=rows, cols=2, subplot_titles=subplot_titles)
-    for idx, col in enumerate(plot_cols):
-        row = idx // 2 + 1
-        col_pos = idx % 2 + 1
-        color = colors[idx % len(colors)]
-        fig.add_trace(
-            go.Bar(x=df_ticker.index, y=df_ticker[col], name=col, marker_color=color),
-            row=row, col=col_pos
-        )
-        fig.add_trace(
-            go.Scatter(x=df_ticker.index, y=ma[col], mode='lines', name=f'{col} MA(4)', line=dict(color='red')),
-            row=row, col=col_pos
-        )
-    fig.update_layout(
-        title_text="Margins Overview - " + ticker,
-        showlegend=False,
-        height=400 * rows,
-        width=1200,
-        template="plotly_white"
-    )
-    fig.update_yaxes(ticksuffix="%")
-    return fig
+    return create_subplot_figure(df_ticker, plot_cols, ma, subplot_titles, "%", "Margins Overview - " + ticker, rows, colors)
 
 def create_bank_plots(df, ticker: str):
     df_temp = df.copy()
     df_ticker = df_temp[df_temp.TICKER == ticker]
     plot_cols = [col for col in ['PPOP', 'Provision for credit losses', 'COF from loan' , 'Loan yield', 'NIM', 'NPL (3-5)'] if col in df_ticker.columns]
     for col in ['NIM','Loan yield', 'NPL (3-5)','COF from loan']:
-        df_ticker[col] = df_ticker[col] * 100  # Convert to percentage
+        if col in df_ticker.columns:
+            df_ticker[col] = df_ticker[col] * 100
     if not plot_cols:
-       return go.Figure()
+        return go.Figure()
     ma = df_ticker[plot_cols].rolling(window=4, min_periods=1).mean()
     subplot_titles = [col.replace('_', ' ') for col in plot_cols]
-    n = len(plot_cols)
-    rows = (n + 1) // 2
+    rows = (len(plot_cols) + 1) // 2
     colors = ['royalblue', 'darkorange', 'green', 'gray']
-    fig = make_subplots(rows=rows, cols=2, subplot_titles=subplot_titles)
-    for idx, col in enumerate(plot_cols):
-       row = idx // 2 + 1
-       col_pos = idx % 2 + 1
-       color = colors[idx % len(colors)]
-       fig.add_trace(
-           go.Bar(x=df_ticker['DATE'], y=df_ticker[col], name=col, marker_color=color),
-           row=row, col=col_pos
-       )
-       fig.add_trace(
-           go.Scatter(x=df_ticker['DATE'], y=ma[col], mode='lines', name=f'{col} MA(4)', line=dict(color='red')),
-           row=row, col=col_pos
-       )
-    fig.update_layout(
-       title_text="Bank Supplement Overview - " + ticker,
-       showlegend=False,
-       height=400 * rows,
-       width=1200,
-       template="plotly_white"
-    )
-    # fig.update_yaxes(ticksuffix="bn")
-    return fig
+    return create_subplot_figure(df_ticker.set_index('DATE'), plot_cols, ma, subplot_titles, "", "Bank Supplement Overview - " + ticker, rows, colors)
 
 # Plot P/E and P/B with dotted line for average and +1 and -1 standard deviation
 def create_pe_pb_plot(df, ticker):
