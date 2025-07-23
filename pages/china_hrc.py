@@ -3,6 +3,10 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from pathlib import Path
+import sys
+
+# Add parent directory to Python path
+sys.path.append(str(Path(__file__).parent.parent))
 from utils.utils import get_data_path
 
 # Page config
