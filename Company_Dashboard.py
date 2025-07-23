@@ -233,7 +233,7 @@ def extract_key_data(df1, df2, ticker):
 st.set_page_config(layout = 'wide', page_title="Company Dashboard")
 
 # Title
-st.title("Company Dashboard")
+st.title("*Company Dashboard*")
 latest_date = pd.to_datetime(val['TRADE_DATE'].max())
 formatted_date = latest_date.strftime('%b-%d-%Y') if not pd.isnull(latest_date) else "N/A"
 
